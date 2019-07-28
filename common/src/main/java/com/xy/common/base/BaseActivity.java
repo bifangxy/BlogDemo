@@ -7,7 +7,6 @@ import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 
 import com.xy.common.utils.ActivityUtils;
-import com.xy.common.utils.StatusBarUtil;
 
 import butterknife.ButterKnife;
 import butterknife.Unbinder;
@@ -28,8 +27,6 @@ public abstract class BaseActivity extends AppCompatActivity {
 
         setContentView(getLayoutId());
         onCreateTask(savedInstanceState);
-        StatusBarUtil.setTransparent(this);
-        StatusBarUtil.setLightMode(this);
 
         if (getSupportActionBar() != null) {
             getSupportActionBar().hide();
