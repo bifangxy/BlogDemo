@@ -1,9 +1,11 @@
 package com.xy.customizeview.widget.view;
 
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.support.annotation.Nullable;
 import android.util.AttributeSet;
@@ -41,13 +43,21 @@ public class SliderView extends View {
 
     private int mBackgroundBitmapHeight;
 
-    private int mSliderBitmaoHeight;
+    private int mSliderBitmapHeight;
 
     private int mSliderLeft;
 
     private int maxSlideValue;
 
     private int minSlideValue;
+
+    private int color;
+
+    private String text;
+
+    private int size;
+
+    private int sex;
 
     private OnSlideListener mListener;
 
@@ -61,7 +71,19 @@ public class SliderView extends View {
 
     public SliderView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+        initCustomAttrs(context, attrs);
         init();
+    }
+
+    private void initCustomAttrs(Context context, AttributeSet attrs) {
+        //获取自定义的属性值
+        TypedArray typedArray = context.obtainStyledAttributes(attrs, R.styleable.SliderView);
+        size = (int) typedArray.getDimension(R.styleable.SliderView_size, 16);
+        color = typedArray.getColor(R.styleable.SliderView_color, Color.BLUE);
+        text = typedArray.getString(R.styleable.SliderView_text);
+        sex = typedArray.getInt(R.styleable.SliderView_sex, 0);
+        typedArray.recycle();
+
     }
 
     private void init() {
@@ -72,7 +94,7 @@ public class SliderView extends View {
         mBackgroundBitmapHeight = mBackgroundBitmap.getHeight();
 
         mSliderBitmapWidth = mSliderBitmap.getWidth();
-        mSliderBitmaoHeight = mSliderBitmap.getHeight();
+        mSliderBitmapHeight = mSliderBitmap.getHeight();
 
         mPaint = new Paint();
         mPaint.setAntiAlias(true);
@@ -120,7 +142,7 @@ public class SliderView extends View {
         canvas.drawBitmap(mBackgroundBitmap, (mWidth - mBackgroundBitmapWidth) >> 1
                 , (mHeight - mBackgroundBitmapHeight) >> 1, mPaint);
         canvas.drawBitmap(mSliderBitmap, mSliderLeft,
-                (mHeight - mSliderBitmaoHeight) >> 1, mPaint);
+                (mHeight - mSliderBitmapHeight) >> 1, mPaint);
     }
 
     @Override
@@ -169,7 +191,7 @@ public class SliderView extends View {
      */
     private boolean isInSlider(float x, float y) {
         if (x <= mSliderLeft + mSliderBitmapWidth && x >= mSliderLeft
-                && y <= mHeight - mSliderBitmaoHeight >> 2 && y >= (mHeight - mSliderBitmaoHeight) >> 1)
+                && y <= mHeight - mSliderBitmapHeight >> 2 && y >= (mHeight - mSliderBitmapHeight) >> 1)
             return true;
         return false;
     }
