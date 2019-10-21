@@ -6,7 +6,7 @@ android {
 
 
     defaultConfig {
-        applicationId "com.xy.retrofit"
+        applicationId "com.xy.rxjavademo"
         minSdkVersion 21
         targetSdkVersion 28
         versionCode 1
@@ -33,7 +33,9 @@ dependencies {
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
     implementation project(':common')
+    implementation rootProject.ext.libs.recyclerView
+    implementation rootProject.ext.libs.brvah
     annotationProcessor rootProject.ext.libs.butterknife_annotation_processor
-    implementation rootProject.ext.libs.retrofit
-    implementation rootProject.ext.libs.okhttp
+    implementation rootProject.ext.libs.rxjava
+    implementation rootProject.ext.libs.rxandroid
 }
