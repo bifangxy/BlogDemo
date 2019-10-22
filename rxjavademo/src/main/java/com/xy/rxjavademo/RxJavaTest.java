@@ -11,6 +11,7 @@ import io.reactivex.ObservableOnSubscribe;
 import io.reactivex.ObservableSource;
 import io.reactivex.Observer;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
@@ -38,7 +39,9 @@ public class RxJavaTest {
 //        rxJavaTest.buffer();
 //        rxJavaTest.concat();
 //        rxJavaTest.concatArray();
-        rxJavaTest.merge();
+//        rxJavaTest.merge();
+//        rxJavaTest.concatArrayDelayError();
+        rxJavaTest.zip();
     }
 
     /**
@@ -474,6 +477,80 @@ public class RxJavaTest {
                         print("mergeArray value = "+aLong);
                     }
                 });
+    }
+
+    private void concatArrayDelayError(){
+        Observable.concatArrayDelayError(
+                Observable.create(new ObservableOnSubscribe<Integer>() {
+                    @Override
+                    public void subscribe(ObservableEmitter<Integer> emitter) throws Exception {
+                        emitter.onNext(1);
+                        emitter.onNext(2);
+                        emitter.onError(new NullPointerException());
+                    }
+                }),Observable.just("2s","3s","4s"))
+                .subscribe(new Observer<Object>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+                        print("onSubscribe");
+                    }
+
+                    @Override
+                    public void onNext(Object o) {
+                        print("value = " + o);
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        print("onError");
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        print("onComplete");
+                    }
+                });
+    }
+
+    private void zip(){
+
+        Observable observable1 = Observable.create(new ObservableOnSubscribe() {
+            @Override
+            public void subscribe(ObservableEmitter emitter) throws Exception {
+                emitter.onNext(1);
+                emitter.onNext(2);
+                emitter.onNext(3);
+                print("发送了事件4");
+                emitter.onNext(4);
+            }
+        });
+
+
+
+        Observable observable2 = Observable.create(new ObservableOnSubscribe() {
+            @Override
+            public void subscribe(ObservableEmitter emitter) throws Exception {
+                emitter.onNext("s");
+                emitter.onNext("m");
+                emitter.onNext("h");
+                emitter.onComplete();
+
+            }
+        });
+
+        Observable.zip(observable1,observable2,new BiFunction<Integer,String,String>(){
+
+            @Override
+            public String apply(Integer integer, String s) throws Exception {
+                return integer+s;
+            }
+        }).subscribe(new Consumer<Object>() {
+            @Override
+            public void accept(Object o) throws Exception {
+                print("value = " +o);
+            }
+        });
+
     }
 
 

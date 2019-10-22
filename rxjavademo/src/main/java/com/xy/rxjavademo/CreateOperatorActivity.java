@@ -2,6 +2,7 @@ package com.xy.rxjavademo;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.support.annotation.NonNull;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.LinearLayoutManager;
@@ -27,6 +28,7 @@ import io.reactivex.ObservableOnSubscribe;
 import io.reactivex.ObservableSource;
 import io.reactivex.Observer;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
 import io.reactivex.schedulers.Schedulers;
 
@@ -88,6 +90,7 @@ public class CreateOperatorActivity extends BaseActivity {
 
         mCreateOperatorDataList.add(new CreateOperatorData(CreateOperatorData.CreateOperator.MERGE,"merge"));
         mCreateOperatorDataList.add(new CreateOperatorData(CreateOperatorData.CreateOperator.MERGE_ARRAY,"merge_array"));
+        mCreateOperatorDataList.add(new CreateOperatorData(CreateOperatorData.CreateOperator.ZIP,"zip"));
 
 
         mRxJavaOperatorAdapter = new RxJavaOperatorAdapter(mCreateOperatorDataList);
@@ -159,6 +162,9 @@ public class CreateOperatorActivity extends BaseActivity {
                 break;
             case MERGE_ARRAY:
                 mergeArray();
+                break;
+            case ZIP:
+                zip();
                 break;
         }
     }
@@ -555,6 +561,104 @@ public class CreateOperatorActivity extends BaseActivity {
                     }
                 });
     }
+
+    private void concatDelayError(){
+        Observable.concatArrayDelayError(
+                Observable.create(new ObservableOnSubscribe<Integer>() {
+                    @Override
+                    public void subscribe(ObservableEmitter<Integer> emitter) throws Exception {
+                        emitter.onNext(1);
+                        emitter.onNext(2);
+                        emitter.onError(new NullPointerException());
+                    }
+                }),Observable.just(1,2,3))
+                .subscribe(new Observer<Object>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(Object o) {
+
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });
+    }
+
+    private void zip(){
+
+        Observable observable1 = Observable.create(new ObservableOnSubscribe() {
+            @Override
+            public void subscribe(ObservableEmitter emitter) throws Exception {
+               log( "被观察者1发送了事件1");
+                emitter.onNext(1);
+                // 为了方便展示效果，所以在发送事件后加入2s的延迟
+                Thread.sleep(1000);
+
+                log( "被观察者1发送了事件2");
+                emitter.onNext(2);
+                Thread.sleep(1000);
+
+                log(  "被观察者1发送了事件3");
+                emitter.onNext(3);
+                Thread.sleep(1000);
+
+                emitter.onComplete();
+            }
+        }).subscribeOn(Schedulers.io());
+
+
+
+        Observable observable2 = Observable.create(new ObservableOnSubscribe() {
+            @Override
+            public void subscribe(ObservableEmitter emitter) throws Exception {
+                log(  "被观察者2发送了事件A");
+                emitter.onNext("A");
+                Thread.sleep(1000);
+
+                log(  "被观察者2发送了事件B");
+                emitter.onNext("B");
+                Thread.sleep(1000);
+
+                log(  "被观察者2发送了事件C");
+                emitter.onNext("C");
+                Thread.sleep(1000);
+
+                log(  "被观察者2发送了事件D");
+                emitter.onNext("D");
+                Thread.sleep(1000);
+
+                emitter.onComplete();
+
+            }
+        }).subscribeOn(Schedulers.newThread());
+
+        Observable.zip(observable1,observable2,new BiFunction<Integer,String,String>(){
+
+            @Override
+            public String apply(Integer integer, String s) throws Exception {
+                return integer+s;
+            }
+        }).subscribe(new Consumer<Object>() {
+            @Override
+            public void accept(Object o) throws Exception {
+                log("value = " +o);
+            }
+        });
+
+    }
+
+
 
 
     private void log(String msg) {

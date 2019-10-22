@@ -36,6 +36,7 @@ public class CreateOperatorData extends RxJavaOperatorData {
         RANGE,
         RANGE_LONG,
         MERGE,
-        MERGE_ARRAY
+        MERGE_ARRAY,
+        ZIP
     }
 }
