@@ -8,6 +8,7 @@ ext {
     rxjavaVersion = "2.2.6"
     rxandroidVersion = "2.1.0"
     brvahVersion = "2.9.46"
+    roomVersion = "2.2.1"
 
 
 
@@ -20,13 +21,15 @@ ext {
             okhttp                          : "com.squareup.okhttp3:okhttp:$okhttpVersion",
             retrofit                        : ["com.squareup.retrofit2:retrofit:$retrofitVersion",
                                                "com.squareup.retrofit2:converter-gson:$retrofitVersion",
-                                               "com.squareup.retrofit2:adapter-rxjava:$retrofitVersion"],
-            permission                     : "com.github.hotchemi:permissionsdispatcher:$permissionVersion",
-            permission_annotation_processor: "com.github.hotchemi:permissionsdispatcher-processor:$permissionVersion",
-            rxjava                         : "io.reactivex.rxjava2:rxjava:$rxjavaVersion",
-            rxandroid                      : "io.reactivex.rxjava2:rxandroid:$rxandroidVersion",
-            recyclerView                   : "com.android.support:recyclerview-v7:$supportVersion",
-            brvah                          : "com.github.CymChad:BaseRecyclerViewAdapterHelper:$brvahVersion"
+                                               "com.squareup.retrofit2:adapter-rxjava2:$retrofitVersion"],
+            permission                      : "com.github.hotchemi:permissionsdispatcher:$permissionVersion",
+            permission_annotation_processor : "com.github.hotchemi:permissionsdispatcher-processor:$permissionVersion",
+            rxjava                          : "io.reactivex.rxjava2:rxjava:$rxjavaVersion",
+            rxandroid                       : "io.reactivex.rxjava2:rxandroid:$rxandroidVersion",
+            recyclerView                    : "com.android.support:recyclerview-v7:$supportVersion",
+            brvah                           : "com.github.CymChad:BaseRecyclerViewAdapterHelper:$brvahVersion",
+            room                            : "androidx.room:room-runtime:$roomVersion",
+            room_annotation_processor       : "androidx.room:room-compiler:$roomVersion"
 
 
 

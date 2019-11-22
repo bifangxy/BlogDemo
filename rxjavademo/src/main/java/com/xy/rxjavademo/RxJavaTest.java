@@ -1,5 +1,7 @@
 package com.xy.rxjavademo;
 
+import com.xy.common.utils.LogUtils;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -35,13 +37,14 @@ public class RxJavaTest {
 //        rxJavaTest.timer();
 //        rxJavaTest.interval();
 //        rxJavaTest.map();
+        rxJavaTest.flatMap();
 //        rxJavaTest.concatMap();
 //        rxJavaTest.buffer();
 //        rxJavaTest.concat();
 //        rxJavaTest.concatArray();
 //        rxJavaTest.merge();
 //        rxJavaTest.concatArrayDelayError();
-        rxJavaTest.zip();
+//        rxJavaTest.zip();
     }
 
     /**
@@ -383,10 +386,33 @@ public class RxJavaTest {
                         return Observable.fromIterable(dataList);
                     }
                 })
-                .subscribe(new Consumer<String>() {
+                .map(new Function<String, String>() {
                     @Override
-                    public void accept(String s) throws Exception {
-                       print(s);
+                    public String apply(String s) throws Exception {
+                        print("apply");
+                        Thread.sleep(2000);
+                        return s;
+                    }
+                })
+                .subscribe(new Observer<String>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+                        print("onSubscribe");
+                    }
+
+                    @Override
+                    public void onNext(String s) {
+                        print("onNext"+s);
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        print("onError");
+                    }
+
+                    @Override
+                    public void onComplete() {
+                       print("onComplete");
                     }
                 });
     }

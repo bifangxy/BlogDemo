@@ -8,7 +8,7 @@ android {
     defaultConfig {
         applicationId "com.xy.retrofit"
         minSdkVersion 21
-        targetSdkVersion 28
+        targetSdkVersion 27
         versionCode 1
         versionName "1.0"
 
@@ -36,4 +36,10 @@ dependencies {
     annotationProcessor rootProject.ext.libs.butterknife_annotation_processor
     implementation rootProject.ext.libs.retrofit
     implementation rootProject.ext.libs.okhttp
+    implementation rootProject.ext.libs.rxjava
+    implementation rootProject.ext.libs.rxandroid
+    annotationProcessor rootProject.ext.libs.room_annotation_processor
+    implementation rootProject.ext.libs.room
+
+
 }

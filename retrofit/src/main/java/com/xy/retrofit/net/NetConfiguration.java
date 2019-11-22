@@ -12,7 +12,7 @@ public class NetConfiguration {
 
     private String host = "http:www.baidu.com";
 
-    private boolean logEnable = true;
+    private boolean logEnable = false;
 
     private Interceptor logInterceptor = new ApiLogInterceptor();
 
