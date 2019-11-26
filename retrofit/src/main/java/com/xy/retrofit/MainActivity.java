@@ -14,11 +14,14 @@ import android.widget.Toast;
 
 import com.xy.common.base.BaseActivity;
 import com.xy.common.utils.LogUtils;
+import com.xy.retrofit.download.SingleDownloadListener;
 import com.xy.retrofit.download.data.DownloadFile;
 import com.xy.retrofit.download.DownloadListener;
 import com.xy.retrofit.download.DownloadManager;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 import butterknife.BindView;
 import butterknife.OnClick;
@@ -32,6 +35,10 @@ public class MainActivity extends BaseActivity {
     private int successCount = 0;
 
     private int failCount = 0;
+
+    private DownloadFile mDownloadFile;
+
+    private List<DownloadFile> mDownloadFileList = new ArrayList<>();
 
     @SuppressLint("HandlerLeak")
     private Handler mHandler = new Handler(){
@@ -54,7 +61,28 @@ public class MainActivity extends BaseActivity {
 
     @Override
     protected void initData() {
+        String path = Environment.getExternalStorageDirectory() + File.separator
+                + "DownloadDemo" + File.separator + "download/";
+        mDownloadFile = new DownloadFile("http://ucdl.25pp.com/fs08/2019/10/21/6/106_8934aae6ab171a529d82a04ca36cf2be.apk?cc=3483200688&fname=%E6%90%9C%E4%B9%A6%E5%A4%A7%E5%B8%88&productid=&packageid=800830119&pkg=com.flyersoft.seekbooks&vcode=161302&yingid=pp_wap_ppcn&vh=60888726ac2001ae5a1ce44545ea1e5a&sf=10508148&sh=10&appid=7646511&apprd=7646511&iconUrl=http%3A%2F%2Fandroid-artworks.25pp.com%2Ffs08%2F2019%2F10%2F22%2F9%2F106_ab3245a34078dc339ff949bab011188f_con.png&did=a43c541f5a557fa90ded8fb2582d86b3&md5=a84f58514c580ca89eac2513f501c003", "test.apk", path);
+        mDownloadFile.setNeedMultithreading(true);
+        mDownloadFile.setNeedOverrideFile(true);
 
+        mDownloadFileList.add(mDownloadFile);
+
+        DownloadFile downloadFile = new DownloadFile("https://zhiyundata.oss-cn-shenzhen.aliyuncs.com/zyplay/share/966896/254911/2019-11-22-16:14:47.mp4", "1.mp4", path);
+        downloadFile.setNeedMultithreading(true);
+        downloadFile.setNeedOverrideFile(true);
+        mDownloadFileList.add(downloadFile);
+
+        DownloadFile downloadFile2 = new DownloadFile("https://zhiyundata.oss-cn-shenzhen.aliyuncs.com/zyplay/share/972125/254855/2019-11-22-12:53:15.mp4", "2.mp4", path);
+        downloadFile2.setNeedMultithreading(true);
+        downloadFile2.setNeedOverrideFile(true);
+        mDownloadFileList.add(downloadFile2);
+
+        DownloadFile downloadFile3 = new DownloadFile("https://zhiyundata.oss-cn-shenzhen.aliyuncs.com/zyplay/share/159929/254921/2019-11-22-16:24:30.mp4", "3.mp4", path);
+        downloadFile3.setNeedMultithreading(true);
+        downloadFile3.setNeedOverrideFile(true);
+        mDownloadFileList.add(downloadFile3);
     }
 
     @Override
@@ -63,38 +91,51 @@ public class MainActivity extends BaseActivity {
     }
 
     @OnClick(R.id.bt_translate)
-    public void translate(){
-       /* TranslationManager.translation("试试看", new TranslationManager.OnTranslationResultListener() {
+    public void download(){
+        DownloadManager.getInstance().setSingleDownloadListener(new SingleDownloadListener() {
             @Override
-            public void success(Translation translation) {
-                mTvDescribe.setText(translation.toString());
+            public void singleStart(String url) {
+                LogUtils.d("start = " + url);
             }
 
             @Override
-            public void fail(String error) {
-                mTvDescribe.setText("翻译失败");
-                LogUtils.d("s = "+error);
+            public void singleProgress(String url, float progress) {
+                LogUtils.d("progress = " + progress);
             }
-        });*/
-       String path = Environment.getExternalStorageDirectory() + File.separator
-               + "DownloadDemo" + File.separator + "download/";
-        DownloadFile downloadFile = new DownloadFile("11.apk","http://dldir1.qq.com/weixin/android/weixin703android1400.apk",path);
-        downloadFile.setNeedMultithreading(true);
-        downloadFile.setNeedOverrideFile(true);
-        DownloadManager.getInstance().startDownload(downloadFile);
 
-        DownloadManager.getInstance().setDownloadListener(new DownloadListener() {
+            @Override
+            public void singleSuccess(String url, String path) {
+                LogUtils.d("success path = " + path);
+            }
+
+            @Override
+            public void singleCancel(String url) {
+                LogUtils.d("cancel url = " + url);
+            }
+
+            @Override
+            public void singlePause(String url) {
+                LogUtils.d("pause  url = " + url);
+            }
+
+            @Override
+            public void singleFail(String url) {
+                LogUtils.d("fail  url = " + url);
+            }
+        });
+        DownloadManager.getInstance().addSerialDownloadFile(mDownloadFileList);
+        /*DownloadManager.getInstance().startDownload(mDownloadFile, new DownloadListener() {
             @Override
             public void cancel() {
                 LogUtils.d("cancel Task");
             }
 
             @Override
-            public void success() {
+            public void success(String path) {
                 successCount++;
                 mHandler.sendEmptyMessage(0);
-//                translate();
-                LogUtils.d("success download");
+                LogUtils.d("success download path = "+path);
+
             }
 
             @Override
@@ -103,18 +144,22 @@ public class MainActivity extends BaseActivity {
             }
 
             @Override
+            public void pause() {
+                LogUtils.d("pause download");
+            }
+
+            @Override
             public void fail() {
                 failCount++;
                 mHandler.sendEmptyMessage(0);
-//                translate();
                 LogUtils.d("fail download");
             }
-        });
+        });*/
     }
 
     @OnClick(R.id.bt_cancel)
     public void cancel(){
-        DownloadManager.getInstance().cancel();
+        DownloadManager.getInstance().cancelCurrentTask();
     }
 
     @Override

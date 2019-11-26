@@ -38,7 +38,7 @@ public class DownloadStatusRepository implements IDownloadStatusRepository{
 
     @Override
     public void insertDownloadStatus(DownloadStatus downloadStatus) {
-        mDownloadStatusDao.insertDownloadStatusa(downloadStatus);
+        mDownloadStatusDao.insertDownloadStatus(downloadStatus);
     }
 
     @Override

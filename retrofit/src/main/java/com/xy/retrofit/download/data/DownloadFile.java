@@ -6,30 +6,21 @@ package com.xy.retrofit.download.data;
  */
 public class DownloadFile {
 
-    private String fileName;
-
     private String url;
+
+    private String fileName;
 
     private String filePath;
 
     //是否需要多线程下载
     private boolean needMultithreading;
-
     //如果文件存在，是否需要覆盖
     private boolean needOverrideFile;
 
-    public DownloadFile(String fileName, String url, String filePath) {
-        this.fileName = fileName;
+    public DownloadFile(String url, String fileName, String filePath) {
         this.url = url;
-        this.filePath = filePath;
-    }
-
-    public String getFileName() {
-        return fileName;
-    }
-
-    public void setFileName(String fileName) {
         this.fileName = fileName;
+        this.filePath = filePath;
     }
 
     public String getUrl() {
@@ -38,6 +29,14 @@ public class DownloadFile {
 
     public void setUrl(String url) {
         this.url = url;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
     }
 
     public String getFilePath() {

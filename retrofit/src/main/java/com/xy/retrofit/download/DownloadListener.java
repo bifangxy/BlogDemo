@@ -6,12 +6,16 @@ package com.xy.retrofit.download;
  */
 public interface DownloadListener {
 
-    void cancel();
+    void start();
 
-    void success();
+    void success(String path);
 
     void progress(float progress);
 
+    void pause();
+
     void fail();
+
+    void cancel();
 
 }

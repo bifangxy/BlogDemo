@@ -16,7 +16,7 @@ public interface DownloadStatusDao {
     DownloadStatus getDownloadStatusByName(String name);
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    void insertDownloadStatusa(DownloadStatus downloadStatus);
+    void insertDownloadStatus(DownloadStatus downloadStatus);
 
     @Query("UPDATE download_status SET currentIndex = :currentIndex WHERE name = :name")
     void updateCurrentIndexByName(String name, long currentIndex);

@@ -1,7 +1,5 @@
 package com.xy.retrofit.download.data;
 
-import android.content.Context;
-
 import com.xy.retrofit.MyApplication;
 
 import androidx.room.Database;

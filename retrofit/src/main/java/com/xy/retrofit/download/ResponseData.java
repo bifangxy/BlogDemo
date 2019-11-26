@@ -1,7 +1,6 @@
 package com.xy.retrofit.download;
 
 import okhttp3.ResponseBody;
-import retrofit2.Response;
 
 /**
  * Created by xieying on 2019-11-19.
