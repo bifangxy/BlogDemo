@@ -7,14 +7,32 @@
     tools:context=".MainActivity">
 
     <Button
-        android:id="@+id/bt_translate"
+        android:id="@+id/bt_signal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="下载"
+        android:text="单个下载"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <Button
+        android:id="@+id/bt_parallel_download"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="并行下载"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tv_describe" />
+
+    <Button
+        android:id="@+id/bt_serial_download"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="串行下载"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/bt_parallel_download" />
 
     <Button
         android:id="@+id/bt_cancel"
@@ -23,7 +41,25 @@
         android:text="取消"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tv_describe" />
+        app:layout_constraintTop_toBottomOf="@+id/bt_serial_download" />
+
+    <Button
+        android:id="@+id/bt_pause"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="暂停"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/bt_cancel" />
+
+    <Button
+        android:id="@+id/bt_all_cancel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="全部取消"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/bt_pause" />
 
     <TextView
         android:id="@+id/tv_describe"
@@ -32,6 +68,6 @@
         android:layout_marginTop="10dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/bt_translate" />
+        app:layout_constraintTop_toBottomOf="@+id/bt_signal" />
 
 </android.support.constraint.ConstraintLayout>

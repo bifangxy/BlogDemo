@@ -1,6 +1,5 @@
 package com.xy.retrofit.download;
 
-import com.xy.common.utils.LogUtils;
 import com.xy.retrofit.download.data.DownloadFile;
 import com.xy.retrofit.download.data.DownloadResult;
 import com.xy.retrofit.download.data.DownloadStatus;
@@ -12,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,14 +31,10 @@ import okhttp3.ResponseBody;
  * Created by xieying on 2019-11-19.
  * Description：
  */
-public class DownloadTask implements Runnable {
+public class DownloadTask {
     private volatile int mThreadCount = 3;
 
     private DownloadFile mDownloadFile;
-
-    private boolean mMultithreading;
-
-    private boolean mOverrideFile;
 
     private Disposable mDisposable;
 
@@ -52,9 +48,9 @@ public class DownloadTask implements Runnable {
 
     private File mTmpFile;
 
-    private boolean success = true;
-
     private volatile boolean pause;
+
+    private volatile boolean cancel;
 
     private DownloadListener mDownloadListener;
 
@@ -62,134 +58,114 @@ public class DownloadTask implements Runnable {
 
     private DownloadResult mDownloadResult;
 
-    private Observable<DownloadResult> mDownloadResultObservable;
+    private DecimalFormat decimalFormat;
 
     public DownloadTask(DownloadFile downloadFile) {
         mDownloadFile = downloadFile;
-        mMultithreading = downloadFile.isNeedMultithreading();
-        mOverrideFile = downloadFile.isNeedOverrideFile();
+        decimalFormat = new DecimalFormat(".00");
+        DecimalFormatSymbols dfs = new DecimalFormatSymbols();
+        dfs.setDecimalSeparator('.');
+        decimalFormat.setDecimalFormatSymbols(dfs);
     }
 
-    @Override
-    public void run() {
-        //判断任务是否在进行
+    public void startDownload() {
         if (mDisposable != null && !mDisposable.isDisposed()) {
             return;
         }
-        startDownload();
+        initDownloadData();
+
+        download();
     }
 
-    private void startDownload() {
+
+    private void initDownloadData() {
         mFile = new File(mDownloadFile.getFilePath(), mDownloadFile.getFileName());
         mFile.getParentFile().mkdirs();
+
         pause = false;
         mDownloadLength = 0;
         mDownloadProgress = 0;
-
         mDownloadStatusRepository = DownloadStatusRepository.getInstance();
-        download();
+
+        mDownloadResult = new DownloadResult(mDownloadFile.getUrl(), mDownloadFile.getFileName());
     }
 
     private void download() {
         getFileContentLength()
-                .flatMap(new Function<Long, ObservableSource<Boolean>>() {
+                .flatMap(new Function<Long, ObservableSource<DownloadResult>>() {
                     @Override
-                    public ObservableSource<Boolean> apply(final Long aLong) throws Exception {
-                        if (aLong <= 0) {
-                            return Observable.error(new Throwable("url error or internet error"));
-                        }
-                        mContentLength = aLong;
-                        LogUtils.d("contentLength = " + aLong);
-                        if (mFile.exists() && mFile.length() == aLong) {
-                            //如果需要覆盖，则把之前的文件删除掉，如果不需要，则直接返回成功
-                            if (mOverrideFile) {
-                                mFile.delete();
-                            } else {
-                                return new Observable<Boolean>() {
-                                    @Override
-                                    protected void subscribeActual(Observer<? super Boolean> observer) {
-                                        observer.onNext(true);
-                                        observer.onComplete();
-                                    }
-                                };
-                            }
-                        }
-                        //创建一个临时文件
-                        mTmpFile = new File(mDownloadFile.getFilePath(), mDownloadFile.getFileName() + ".tmp");
-                        if (!mTmpFile.exists()) {
-                            mDownloadStatusRepository.deleteDataByUrl(mDownloadFile.getUrl());
-                        }
-                        if (!mMultithreading) {
-                            return downloadFile(0, aLong);
-                        }
-                        List<Observable<Boolean>> responseDataList = new ArrayList<>();
+                    public ObservableSource<DownloadResult> apply(final Long aLong) throws Exception {
+                        return checkDownloadFile(aLong);
+                    }
+                })
+                .subscribeOn(Schedulers.io())
+                .subscribe(new Observer<DownloadResult>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+                        doSubscribe(d);
+                    }
 
-                        long blockSize = aLong / mThreadCount;
+                    @Override
+                    public void onNext(DownloadResult downloadResult) {
+                        doNext(downloadResult);
+                    }
 
-                        for (int threadId = 0; threadId < mThreadCount; threadId++) {
-                            long startIndex = threadId * blockSize;
-                            long endIndex = (threadId + 1) * blockSize - 1;
-                            if (threadId == mThreadCount - 1) {
-                                endIndex = aLong - 1;
-                            }
-                            responseDataList.add(downloadFile(startIndex, endIndex));
-                        }
-                        return Observable.zip(responseDataList, new Function<Object[], Boolean>() {
-                            @Override
-                            public Boolean apply(Object[] objects) throws Exception {
-                                boolean success = true;
-                                for (Object object : objects) {
-                                    if (object instanceof Boolean) {
-                                        LogUtils.d("object = " + object);
-                                        success = success && (Boolean) object;
-                                    }
-                                }
-                                LogUtils.d("success = " + success);
-                                return success;
-                            }
-                        });
-//                        return Observable.merge(responseDataList);
+                    @Override
+                    public void onError(Throwable e) {
+                        doError();
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        doComplete();
+                    }
+                });
+    }
+
+    public Observable<DownloadResult> getDownloadObservable() {
+        initDownloadData();
+        return getFileContentLength()
+                .flatMap(new Function<Long, ObservableSource<DownloadResult>>() {
+                    @Override
+                    public ObservableSource<DownloadResult> apply(final Long aLong) throws Exception {
+                        return checkDownloadFile(aLong);
+                    }
+                })
+                .observeOn(Schedulers.io())
+                .subscribeOn(Schedulers.io())
+                .doOnSubscribe(new Consumer<Disposable>() {
+                    @Override
+                    public void accept(Disposable disposable) throws Exception {
+                        doSubscribe(disposable);
+                    }
+                })
+                .doOnNext(new Consumer<DownloadResult>() {
+                    @Override
+                    public void accept(DownloadResult downloadResult) throws Exception {
+                        doNext(downloadResult);
+                    }
+                })
+                .doOnComplete(new Action() {
+                    @Override
+                    public void run() throws Exception {
+                        doComplete();
+                    }
+                })
+                .doOnError(new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable) throws Exception {
+                        doError();
                     }
                 })
                 .doOnDispose(new Action() {
                     @Override
                     public void run() throws Exception {
-                        //如果取消，则将文件删除并清空该条下载进度
-                        mTmpFile.delete();
-                        mDownloadStatusRepository.deleteDataByUrl(mDownloadFile.getUrl());
                         sendCancelCallBack();
                     }
-                })
-                .subscribe(new Observer<Boolean>() {
-                    @Override
-                    public void onSubscribe(Disposable d) {
-                        mDisposable = d;
-                    }
-
-                    @Override
-                    public void onNext(Boolean aBoolean) {
-                        success = success && aBoolean;
-                    }
-
-                    @Override
-                    public void onError(Throwable e) {
-                        success = false;
-                        sendFailCallBack();
-                    }
-
-                    @Override
-                    public void onComplete() {
-                        if (success) {
-                            sendSuccessCallBack();
-                        } else if (pause) {
-                            sendPauseCallBack();
-                        } else {
-                            sendPauseCallBack();
-                        }
-                    }
                 });
-
     }
+
+
 
 
     /**
@@ -210,273 +186,41 @@ public class DownloadTask implements Runnable {
     }
 
     /**
-     * 根据条件下载文件
+     * 检查下载文件状态
      *
-     * @param startIndex 下载起始位置
-     * @param endIndex   下载结束位置
+     * @param aLong 下载文件长度
      * @return 下载结果
-     * @throws Exception 异常
+     * @throws Exception Exception
      */
-    private Observable<Boolean> downloadFile(final long startIndex, final long endIndex) throws Exception {
-        final String name = mDownloadFile.getUrl() + "-" + mDownloadFile.getFileName() + "-" + startIndex;
-        DownloadStatus downloadStatus = new DownloadStatus(name, mDownloadFile.getUrl(), startIndex, 0, endIndex, 0);
-        //获取之前该片段的下载情况
-        DownloadStatus dbDownloadStatus = mDownloadStatusRepository.getDownloadStatusByName(name);
-        if (dbDownloadStatus != null) {
-            downloadStatus = dbDownloadStatus;
+    private Observable<DownloadResult> checkDownloadFile(Long aLong) throws Exception {
+        if (aLong <= 0) {
+            return Observable.error(new Throwable(""));
         }
-        mDownloadStatusRepository.insertDownloadStatus(downloadStatus);
-        //获取之前的下载位置
-        long currentIndex = downloadStatus.getCurrentIndex();
-        //获取真正的起始位置
-        final long realStartIndex = currentIndex == 0 ? downloadStatus.getStartIndex() : currentIndex;
-        //根据之前该片段的下载情况，设置下载进度
-        addProgress(realStartIndex - downloadStatus.getStartIndex());
-        //判断之前该片段是否已经下载完成，如果已经下载完成，则直接返回成功
-        if (downloadStatus.getStatus() == 2) {
-            return Observable.create(new ObservableOnSubscribe<Boolean>() {
+        mContentLength = aLong;
+
+        //判断是否需要覆盖,如果需要则删除文件
+        if (mFile.exists() && mDownloadFile.isNeedOverrideFile()) {
+            mFile.delete();
+        }
+        //判断文件是否存在
+        if (mFile.exists() && mFile.length() == aLong) {
+            //如果存在，直接返回该文件的路径
+            return Observable.create(new ObservableOnSubscribe<DownloadResult>() {
                 @Override
-                public void subscribe(ObservableEmitter<Boolean> emitter) throws Exception {
-                    emitter.onNext(true);
+                public void subscribe(ObservableEmitter<DownloadResult> emitter) throws Exception {
+                    mDownloadResult.setState(2);
+                    mDownloadResult.setPath(mFile.getAbsolutePath());
+                    emitter.onNext(mDownloadResult);
                     emitter.onComplete();
                 }
             });
         }
-
-        return DownloadApi.api.download("bytes=" + realStartIndex + "-" + endIndex, mDownloadFile.getUrl())
-                .subscribeOn(Schedulers.io())
-                .map(new Function<ResponseBody, Boolean>() {
-                    @Override
-                    public Boolean apply(ResponseBody responseBody) throws Exception {
-                        RandomAccessFile tmpAccessFile = null;
-                        try {
-                            LogUtils.d("downloadFile" + Thread.currentThread().getId());
-                            InputStream is = responseBody.byteStream();
-                            byte[] buffer = new byte[2048];
-                            long progress = 0;
-                            long total = 0;
-                            int length;
-                            tmpAccessFile = new RandomAccessFile(mTmpFile, "rw");
-                            tmpAccessFile.seek(realStartIndex);
-                            while ((length = is.read(buffer)) != -1) {
-                                if (pause) {
-                                    return false;
-                                }
-                                total += length;
-                                //每100kb保存一次，不然影响速度
-                                if ((total - progress) > 1024 * 100) {
-                                    progress = total;
-                                    mDownloadStatusRepository.updateCurrentIndexByName(name, realStartIndex + progress);
-                                }
-                                tmpAccessFile.write(buffer, 0, length);
-                                addProgress(length);
-                            }
-                            //片段下载完成，数据库进行保存
-                            mDownloadStatusRepository.updateCurrentIndexByName(name, endIndex);
-                            mDownloadStatusRepository.updateStatusByName(name, 2);
-                            return true;
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            return false;
-                        } finally {
-                            close(responseBody, tmpAccessFile);
-                        }
-                    }
-                })
-                .doOnError(new Consumer<Throwable>() {
-                    @Override
-                    public void accept(Throwable throwable) throws Exception {
-                        LogUtils.d(throwable.toString());
-                    }
-                })
-                .doOnDispose(new Action() {
-                    @Override
-                    public void run() throws Exception {
-                        LogUtils.d("doOnDispose");
-                        mDownloadStatusRepository.deleteDataByName(name);
-                    }
-                });
-    }
-
-    private synchronized void addProgress(long length) {
-        mDownloadLength += length;
-        float progress = (float) mDownloadLength / mContentLength;
-        DecimalFormat decimalFormat = new DecimalFormat(".00");
-        String p = decimalFormat.format(progress);
-        if (Float.valueOf(p) != mDownloadProgress) {
-            mDownloadProgress = Float.valueOf(p);
-            sendProgressCallBack(mDownloadProgress);
-        }
-    }
-    public void cancel() {
-        if (mDisposable != null && !mDisposable.isDisposed()) {
-            mDisposable.dispose();
-        }
-    }
-
-    public void pause() {
-        if(isDownloading()){
-            pause = true;
-        }
-    }
-
-    public void setDownloadListener(DownloadListener downloadListener) {
-        mDownloadListener = downloadListener;
-    }
-
-    private void sendStartListener() {
-        if (mDownloadListener != null) {
-            mDownloadListener.start();
-        }
-    }
-
-    private void sendProgressCallBack(float progress) {
-        if (mDownloadListener != null) {
-            mDownloadListener.progress(progress);
-        }
-    }
-
-    private void sendCancelCallBack() {
-        if (mDownloadListener != null) {
-            mDownloadListener.cancel();
-        }
-    }
-
-    private void sendSuccessCallBack() {
-        if (mDownloadListener != null) {
-            if (mTmpFile != null) {
-                mTmpFile.renameTo(mFile);
-            }
-            mDownloadListener.success(mFile.getAbsolutePath());
-        }
-    }
-
-    private void sendPauseCallBack(){
-        if(mDownloadListener != null){
-            mDownloadListener.pause();
-        }
-    }
-
-    private void sendFailCallBack() {
-        if (mDownloadListener != null) {
-            mDownloadListener.fail();
-        }
-    }
-
-    public boolean isDownloading() {
-        if (mDisposable == null) {
-            return false;
-        }
-        return !mDisposable.isDisposed();
-    }
-
-    public DownloadFile getDownloadFile(){
-        return mDownloadFile;
-    }
-
-    /**
-     * 关掉IO资源
-     *
-     * @param closeables IO资源
-     */
-    private void close(Closeable... closeables) {
-        try {
-            for (Closeable closeable : closeables) {
-                if (closeable != null) {
-                    closeable.close();
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            for (int i = 0; i < closeables.length; i++) {
-                closeables[i] = null;
-            }
-        }
-    }
-
-
-    public Observable<DownloadResult> serialDownload() {
-        initDownloadData();
-        mDownloadResultObservable =  getFileContentLength()
-                .flatMap(new Function<Long, ObservableSource<DownloadResult>>() {
-                    @Override
-                    public ObservableSource<DownloadResult> apply(final Long aLong) throws Exception {
-                        return checkDownload(aLong);
-                    }
-                })
-                .observeOn(Schedulers.io())
-                .subscribeOn(Schedulers.io())
-                .doOnSubscribe(new Consumer<Disposable>() {
-                    @Override
-                    public void accept(Disposable disposable) throws Exception {
-                        sendStartListener();
-                        mDisposable = disposable;
-                    }
-                })
-                .doOnComplete(new Action() {
-                    @Override
-                    public void run() throws Exception {
-                        if(mDownloadResult.getState() == 2){
-                            sendSuccessCallBack();
-                        }else {
-                            sendFailCallBack();
-                        }
-                    }
-                })
-                .doOnError(new Consumer<Throwable>() {
-                    @Override
-                    public void accept(Throwable throwable) throws Exception {
-                        sendFailCallBack();
-                    }
-                })
-                .doOnDispose(new Action() {
-                    @Override
-                    public void run() throws Exception {
-                        LogUtils.d("doOnDispose");
-                        sendCancelCallBack();
-                    }
-                });
-        return mDownloadResultObservable;
-
-    }
-
-    private void initDownloadData() {
-        mFile = new File(mDownloadFile.getFilePath(), mDownloadFile.getFileName());
-        mFile.getParentFile().mkdirs();
-
-        pause = false;
-        mDownloadLength = 0;
-        mDownloadProgress = 0;
-        mDownloadStatusRepository = DownloadStatusRepository.getInstance();
-
-        mDownloadResult = new DownloadResult(mDownloadFile.getUrl(), mDownloadFile.getFileName());
-    }
-
-    private Observable<DownloadResult> checkDownload(Long aLong) throws Exception{
-        if(aLong <=0){
-            return Observable.error(new Throwable(""));
-        }
-        mContentLength = aLong;
-        if (mFile.exists() && mFile.length() == aLong) {
-            if (mDownloadFile.isNeedOverrideFile()) {
-                mFile.delete();
-            } else {
-                return Observable.create(new ObservableOnSubscribe<DownloadResult>() {
-                    @Override
-                    public void subscribe(ObservableEmitter<DownloadResult> emitter) throws Exception {
-                        mDownloadResult.setState(2);
-                        mDownloadResult.setPath(mFile.getAbsolutePath());
-                        emitter.onNext(mDownloadResult);
-                        emitter.onComplete();
-                    }
-                });
-            }
-        }
         mTmpFile = new File(mDownloadFile.getFilePath(), mDownloadFile.getFileName() + ".tmp");
         if (!mTmpFile.exists()) {
+            //如果临时文件不存在，则删除数据库该url的数据
             mDownloadStatusRepository.deleteDataByUrl(mDownloadFile.getUrl());
         }
+        //判断是否需要多线程下载
         if (!mDownloadFile.isNeedMultithreading()) {
             return downloadFile(0, aLong).map(new Function<Boolean, DownloadResult>() {
                 @Override
@@ -502,6 +246,7 @@ public class DownloadTask implements Runnable {
             }
             responseDataList.add(downloadFile(startIndex, endIndex));
         }
+
         return Observable.zip(responseDataList, new Function<Object[], DownloadResult>() {
             @Override
             public DownloadResult apply(Object[] objects) throws Exception {
@@ -521,8 +266,222 @@ public class DownloadTask implements Runnable {
                 return mDownloadResult;
             }
         });
+    }
 
+    /**
+     * 根据条件下载文件
+     *
+     * @param startIndex 下载起始位置
+     * @param endIndex   下载结束位置
+     * @return 下载结果
+     * @throws Exception 异常
+     */
+    private Observable<Boolean> downloadFile(final long startIndex, final long endIndex) throws Exception {
+        final String name = mDownloadFile.getUrl() + "-" + mDownloadFile.getFileName() + "-" + startIndex;
+        //获取之前该片段的下载情况
+        DownloadStatus downloadStatus = mDownloadStatusRepository.getDownloadStatusByName(name);
+        if (downloadStatus == null) {
+            downloadStatus = new DownloadStatus(name, mDownloadFile.getUrl(), startIndex, 0, endIndex, 0);
+            mDownloadStatusRepository.insertDownloadStatus(downloadStatus);
+        }
+        //获取之前的下载位置
+        long currentIndex = downloadStatus.getCurrentIndex();
+
+        //获取真正的起始位置
+        final long realStartIndex = currentIndex == 0 ? downloadStatus.getStartIndex() : currentIndex;
+
+        //根据之前该片段的下载情况，设置下载进度
+        addProgress(realStartIndex - downloadStatus.getStartIndex());
+
+        //判断之前该片段是否已经下载完成，如果已经下载完成，则直接返回成功
+        if (downloadStatus.getStatus() == 2) {
+            return Observable.create(new ObservableOnSubscribe<Boolean>() {
+                @Override
+                public void subscribe(ObservableEmitter<Boolean> emitter) throws Exception {
+                    emitter.onNext(true);
+                    emitter.onComplete();
+                }
+            });
+        }
+        return DownloadApi.api.download("bytes=" + realStartIndex + "-" + endIndex, mDownloadFile.getUrl())
+                .subscribeOn(Schedulers.io())
+                .map(new Function<ResponseBody, Boolean>() {
+                    @Override
+                    public Boolean apply(ResponseBody responseBody) throws Exception {
+                        RandomAccessFile tmpAccessFile = null;
+                        try {
+                            InputStream is = responseBody.byteStream();
+                            byte[] buffer = new byte[2048];
+                            long progress = 0;
+                            long total = 0;
+                            int length;
+                            tmpAccessFile = new RandomAccessFile(mTmpFile, "rw");
+                            tmpAccessFile.seek(realStartIndex);
+                            while ((length = is.read(buffer)) != -1) {
+                                if (pause) {
+                                    return false;
+                                }
+                                if (cancel) {
+                                    return false;
+                                }
+                                total += length;
+                                //每100kb保存一次，不然影响速度
+                                if ((total - progress) > 1024 * 100) {
+                                    progress = total;
+                                    mDownloadStatusRepository.updateCurrentIndexByName(name, realStartIndex + progress);
+                                }
+                                tmpAccessFile.write(buffer, 0, length);
+                                addProgress(length);
+                            }
+                            //片段下载完成，数据库进行保存
+                            mDownloadStatusRepository.updateCurrentIndexByName(name, endIndex);
+                            mDownloadStatusRepository.updateStatusByName(name, 2);
+                            return true;
+                        } catch (Exception e) {
+//                            e.printStackTrace();
+                            return false;
+                        } finally {
+                            close(responseBody, tmpAccessFile);
+                        }
+                    }
+                });
+    }
+
+    private synchronized void addProgress(long length) {
+        mDownloadLength += length;
+        float progress = (float) mDownloadLength / mContentLength;
+        String p = decimalFormat.format(progress);
+        if (Float.valueOf(p) != mDownloadProgress) {
+            mDownloadProgress = Float.valueOf(p);
+            sendProgressCallBack(mDownloadProgress);
+        }
+    }
+
+    public void cancel() {
+        if (isDownloading()) {
+            cancel = true;
+        }
+    }
+
+    public void pause() {
+        if (isDownloading()) {
+            pause = true;
+        }
+    }
+
+    private void doComplete(){
+        if (mDownloadResult.getState() == 2) {
+            sendSuccessCallBack();
+        } else if (pause) {
+            sendPauseCallBack();
+        } else if (cancel) {
+            sendCancelCallBack();
+        } else {
+            sendFailCallBack();
+        }
+    }
+
+    private void doSubscribe(Disposable disposable){
+        sendStartListener();
+        mDisposable = disposable;
+    }
+
+    private void doNext(DownloadResult downloadResult){
+        mDownloadResult = downloadResult;
 
     }
 
+    private void doError(){
+        sendFailCallBack();
+    }
+
+    private void sendStartListener() {
+        if (mDownloadListener != null) {
+            mDownloadListener.start();
+        }
+    }
+
+    private void sendProgressCallBack(float progress) {
+        if (mDownloadListener != null) {
+            mDownloadListener.progress(progress);
+        }
+    }
+
+    private void sendCancelCallBack() {
+        dispose();
+        mTmpFile.delete();
+        mDownloadStatusRepository.deleteDataByUrl(mDownloadFile.getUrl());
+        if (mDownloadListener != null) {
+            mDownloadListener.cancel();
+        }
+    }
+
+    private void sendSuccessCallBack() {
+        dispose();
+        if (mDownloadListener != null) {
+            if (mTmpFile != null) {
+                mTmpFile.renameTo(mFile);
+            }
+            mDownloadListener.success(mFile.getAbsolutePath());
+        }
+    }
+
+    private void sendPauseCallBack() {
+        dispose();
+        if (mDownloadListener != null) {
+            mDownloadListener.pause();
+        }
+    }
+
+    private void sendFailCallBack() {
+        dispose();
+        if (mDownloadListener != null) {
+            mDownloadListener.fail();
+        }
+    }
+
+    public void setDownloadListener(DownloadListener downloadListener) {
+        if (downloadListener == null) {
+            return;
+        }
+        mDownloadListener = downloadListener;
+    }
+
+    public boolean isDownloading() {
+        if (mDisposable == null) {
+            return false;
+        }
+        return !mDisposable.isDisposed();
+    }
+
+    public DownloadFile getDownloadFile() {
+        return mDownloadFile;
+    }
+
+    /**
+     * 关掉IO资源
+     *
+     * @param closeables IO资源
+     */
+    private void close(Closeable... closeables) {
+        try {
+            for (Closeable closeable : closeables) {
+                if (closeable != null) {
+                    closeable.close();
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            for (int i = 0; i < closeables.length; i++) {
+                closeables[i] = null;
+            }
+        }
+    }
+
+    private void dispose() {
+        if ((mDisposable != null && !mDisposable.isDisposed())) {
+            mDisposable.dispose();
+        }
+    }
 }

@@ -38,7 +38,41 @@ public class MainActivity extends BaseActivity {
 
     private DownloadFile mDownloadFile;
 
+    private String path;
+
     private List<DownloadFile> mDownloadFileList = new ArrayList<>();
+
+    private DownloadListener mDownloadListener = new DownloadListener() {
+        @Override
+        public void start() {
+            LogUtils.d("start");
+        }
+
+        @Override
+        public void success(String path) {
+            LogUtils.d("success "+path);
+        }
+
+        @Override
+        public void progress(float progress) {
+            LogUtils.d("progress "+progress);
+        }
+
+        @Override
+        public void pause() {
+            LogUtils.d("pause");
+        }
+
+        @Override
+        public void fail() {
+            LogUtils.d("fail");
+        }
+
+        @Override
+        public void cancel() {
+            LogUtils.d("cancel");
+        }
+    };
 
     @SuppressLint("HandlerLeak")
     private Handler mHandler = new Handler(){
@@ -46,7 +80,7 @@ public class MainActivity extends BaseActivity {
         public void handleMessage(Message msg) {
             switch (msg.what){
                 case 0:
-                    mTvDescribe.setText("success count = " + successCount + " fail count = " + failCount);
+                    mTvDescribe.setText(String.format("success count = %s fail count = %s", successCount, failCount));
                     break;
                 default:
                     break;
@@ -61,7 +95,7 @@ public class MainActivity extends BaseActivity {
 
     @Override
     protected void initData() {
-        String path = Environment.getExternalStorageDirectory() + File.separator
+        path = Environment.getExternalStorageDirectory() + File.separator
                 + "DownloadDemo" + File.separator + "download/";
         mDownloadFile = new DownloadFile("http://ucdl.25pp.com/fs08/2019/10/21/6/106_8934aae6ab171a529d82a04ca36cf2be.apk?cc=3483200688&fname=%E6%90%9C%E4%B9%A6%E5%A4%A7%E5%B8%88&productid=&packageid=800830119&pkg=com.flyersoft.seekbooks&vcode=161302&yingid=pp_wap_ppcn&vh=60888726ac2001ae5a1ce44545ea1e5a&sf=10508148&sh=10&appid=7646511&apprd=7646511&iconUrl=http%3A%2F%2Fandroid-artworks.25pp.com%2Ffs08%2F2019%2F10%2F22%2F9%2F106_ab3245a34078dc339ff949bab011188f_con.png&did=a43c541f5a557fa90ded8fb2582d86b3&md5=a84f58514c580ca89eac2513f501c003", "test.apk", path);
         mDownloadFile.setNeedMultithreading(true);
@@ -83,15 +117,11 @@ public class MainActivity extends BaseActivity {
         downloadFile3.setNeedMultithreading(true);
         downloadFile3.setNeedOverrideFile(true);
         mDownloadFileList.add(downloadFile3);
+
     }
 
     @Override
     protected void initEvent() {
-
-    }
-
-    @OnClick(R.id.bt_translate)
-    public void download(){
         DownloadManager.getInstance().setSingleDownloadListener(new SingleDownloadListener() {
             @Override
             public void singleStart(String url) {
@@ -123,43 +153,85 @@ public class MainActivity extends BaseActivity {
                 LogUtils.d("fail  url = " + url);
             }
         });
-        DownloadManager.getInstance().addSerialDownloadFile(mDownloadFileList);
-        /*DownloadManager.getInstance().startDownload(mDownloadFile, new DownloadListener() {
+    }
+    @OnClick(R.id.bt_signal)
+    public void signalDownload(){
+        DownloadFile downloadFile = new DownloadFile("http://ucdl.25pp.com/fs08/2019/10/21/6/106_8934aae6ab171a529d82a04ca36cf2be.apk?cc=3483200688&fname=%E6%90%9C%E4%B9%A6%E5%A4%A7%E5%B8%88&productid=&packageid=800830119&pkg=com.flyersoft.seekbooks&vcode=161302&yingid=pp_wap_ppcn&vh=60888726ac2001ae5a1ce44545ea1e5a&sf=10508148&sh=10&appid=7646511&apprd=7646511&iconUrl=http%3A%2F%2Fandroid-artworks.25pp.com%2Ffs08%2F2019%2F10%2F22%2F9%2F106_ab3245a34078dc339ff949bab011188f_con.png&did=a43c541f5a557fa90ded8fb2582d86b3&md5=a84f58514c580ca89eac2513f501c003", "test.apk", path);
+        downloadFile.setNeedMultithreading(true);
+        downloadFile.setNeedOverrideFile(true);
+
+        DownloadManager.getInstance().startDownload(downloadFile, new DownloadListener() {
             @Override
-            public void cancel() {
-                LogUtils.d("cancel Task");
+            public void start() {
+                LogUtils.d("---start---");
             }
 
             @Override
             public void success(String path) {
                 successCount++;
                 mHandler.sendEmptyMessage(0);
-                LogUtils.d("success download path = "+path);
-
+                LogUtils.d("---success---"+path);
+//                signalDownload();
             }
 
             @Override
             public void progress(float progress) {
-                LogUtils.d("download progress = " + progress);
+                LogUtils.d("---progress---"+progress);
             }
 
             @Override
             public void pause() {
-                LogUtils.d("pause download");
+                LogUtils.d("---pause---");
             }
 
             @Override
             public void fail() {
                 failCount++;
                 mHandler.sendEmptyMessage(0);
-                LogUtils.d("fail download");
+                LogUtils.d("---fail---");
+//                signalDownload();
             }
-        });*/
+
+            @Override
+            public void cancel() {
+                LogUtils.d("---cancel---");
+            }
+        });
+    }
+
+    @OnClick(R.id.bt_parallel_download)
+    public void parallelDownload() {
+        DownloadManager.getInstance().add("http://ucdl.25pp.com/fs08/2019/10/21/6/106_8934aae6ab171a529d82a04ca36cf2be.apk?cc=3483200688&fname=%E6%90%9C%E4%B9%A6%E5%A4%A7%E5%B8%88&productid=&packageid=800830119&pkg=com.flyersoft.seekbooks&vcode=161302&yingid=pp_wap_ppcn&vh=60888726ac2001ae5a1ce44545ea1e5a&sf=10508148&sh=10&appid=7646511&apprd=7646511&iconUrl=http%3A%2F%2Fandroid-artworks.25pp.com%2Ffs08%2F2019%2F10%2F22%2F9%2F106_ab3245a34078dc339ff949bab011188f_con.png&did=a43c541f5a557fa90ded8fb2582d86b3&md5=a84f58514c580ca89eac2513f501c003", path, "test.apk", mDownloadListener);
+        DownloadManager.getInstance().add("https://zhiyundata.oss-cn-shenzhen.aliyuncs.com/zyplay/share/966896/254911/2019-11-22-16:14:47.mp4", path, "11.mp4", mDownloadListener);
+        DownloadManager.getInstance().add("https://zhiyundata.oss-cn-shenzhen.aliyuncs.com/zyplay/share/159929/254921/2019-11-22-16:24:30.mp4", path, "22.mp4", mDownloadListener);
+
+        //        DownloadManager.getInstance().addDownloadFile(mDownloadFileList);
+        DownloadManager.getInstance().startParallelDownload();
+    }
+
+    @OnClick(R.id.bt_serial_download)
+    public void serialDownload() {
+        DownloadManager.getInstance().add("http://ucdl.25pp.com/fs08/2019/10/21/6/106_8934aae6ab171a529d82a04ca36cf2be.apk?cc=3483200688&fname=%E6%90%9C%E4%B9%A6%E5%A4%A7%E5%B8%88&productid=&packageid=800830119&pkg=com.flyersoft.seekbooks&vcode=161302&yingid=pp_wap_ppcn&vh=60888726ac2001ae5a1ce44545ea1e5a&sf=10508148&sh=10&appid=7646511&apprd=7646511&iconUrl=http%3A%2F%2Fandroid-artworks.25pp.com%2Ffs08%2F2019%2F10%2F22%2F9%2F106_ab3245a34078dc339ff949bab011188f_con.png&did=a43c541f5a557fa90ded8fb2582d86b3&md5=a84f58514c580ca89eac2513f501c003", path, "test.apk", mDownloadListener);
+        DownloadManager.getInstance().add("https://zhiyundata.oss-cn-shenzhen.aliyuncs.com/zyplay/share/966896/254911/2019-11-22-16:14:47.mp4", path, "11.mp4", mDownloadListener);
+        DownloadManager.getInstance().add("https://zhiyundata.oss-cn-shenzhen.aliyuncs.com/zyplay/share/159929/254921/2019-11-22-16:24:30.mp4", path, "22.mp4", mDownloadListener);
+
+//        DownloadManager.getInstance().addDownloadFile(mDownloadFileList);
+        DownloadManager.getInstance().startSerialDownload();
     }
 
     @OnClick(R.id.bt_cancel)
     public void cancel(){
         DownloadManager.getInstance().cancelCurrentTask();
+    }
+
+    @OnClick(R.id.bt_pause)
+    public void pause(){
+        DownloadManager.getInstance().pauseCurrentTask();
+    }
+
+    @OnClick(R.id.bt_all_cancel)
+    public void cancelAll(){
+        DownloadManager.getInstance().cancelAllTask();
     }
 
     @Override
